@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from random import shuffle
-from math import cos, sin, pi
+from math import cos, sin, pi, sqrt
 
 class NullVector(Exception):
     pass
 
 def normalize(vector):
-    norm = np.linalg.norm(vector)
+    norm = sqrt(vector @ vector)
     if norm == 0:
         raise NullVector
     return vector / norm
@@ -81,6 +81,17 @@ bb_faces_corners = [[bb_corners[i] for i in corners_idx] for corners_idx in _fac
 bb_faces_normals = [np.array([1, 0, 0]), np.array([1, 0, 0]),
     np.array([0, 1, 0]), np.array([0, 1, 0]),
     np.array([0, 0, 1]), np.array([0, 0, 1])]
+bb_faces_rect_limits = []
+bb_faces_rect_basis = []
+for face_corners in bb_faces_corners:
+    bottomleft, bottomright, topleft, topright = face_corners
+    vecx = bottomright - bottomleft
+    vecy = topleft - bottomleft
+    rect_basis = np.array([normalize(vecx), normalize(vecy)])
+    lower_point = rect_basis @ bottomleft
+    upper_point = rect_basis @ topright
+    bb_faces_rect_limits.append((lower_point, upper_point))
+    bb_faces_rect_basis.append(rect_basis)
 
 #Other variables
 sky_colour = np.array([0.0, 0.0, 0.0, 1.0])
@@ -97,18 +108,11 @@ def ray_marching():
 def ray_plane_intersect(ray_point, ray_dir, face_point, face_normal):
     return ray_point + (((face_point - ray_point) @ face_normal) / (ray_dir @ face_normal) * ray_dir)
 
-def point_in_rect(point, corners):
-    #We assume the point is on the plane of the rectangle
-    #corners = bottomleft, topleft, bottomright, topright
-    bottomleft, bottomright, topleft, topright = corners
-    vecx = bottomright - bottomleft
-    vecy = topleft - bottomleft
-    #rect_size = np.array([np.linalg.norm(vecx), np.linalg.norm(vecy)])
-    rect_basis = np.array([normalize(vecx), normalize(vecy)])
+def point_in_rect(point, rect_basis, lower_point, upper_point):
+    #We assume the point is on the plane of the rectangle.
+    #We want to compute if it is inside.
     local_point = rect_basis @ point
-    lower_point = rect_basis @ bottomleft
-    upper_point = rect_basis @ topright
-    return np.all(lower_point <= local_point) and np.all(local_point <= upper_point)
+    return lower_point[0] <= local_point[0] <= upper_point[0] and lower_point[1] <= local_point[1] <= upper_point[1]
 
 def ray_box_intersect(ray_point, ray_dir):
     '''Etant donnée un rayon, on renvoie les points d'intersection (potentiellement dupliqués)
@@ -117,9 +121,9 @@ def ray_box_intersect(ray_point, ray_dir):
     #Ce sont exactement les points d'intersection du rayon avec le plan engendré par
     #chacune des faces, qui sont contenus dans cette-même face.
     intersections = []
-    for face_corners, face_normal in zip(bb_faces_corners, bb_faces_normals):
-        inter = ray_plane_intersect(ray_point, ray_dir, face_corners[0], face_normal)
-        if point_in_rect(inter, face_corners):
+    for face_points, face_normal, rect_basis, rect_limits in zip(bb_faces_corners, bb_faces_normals, bb_faces_rect_basis, bb_faces_rect_limits):
+        inter = ray_plane_intersect(ray_point, ray_dir, face_points[0], face_normal)
+        if point_in_rect(inter, rect_basis, *rect_limits):
             intersections.append(inter)
     return intersections
 
@@ -158,4 +162,19 @@ def show_image(image):
     plt.imshow(np.transpose(image, axes=(1, 0, 2)), origin='lower')
     plt.show()
 
-show_image(compute_image())
+'''def main():
+    import cProfile
+    import pstats
+
+    with cProfile.Profile() as pr:
+        image = compute_image()
+
+    stats = pstats.Stats(pr)
+    stats.sort_stats(pstats.SortKey.TIME)
+    #stats.print_stats()
+    stats.dump_stats(filename='profiling5.prof')
+    show_image(image)
+
+
+if __name__ == '__main__':
+    main()'''
