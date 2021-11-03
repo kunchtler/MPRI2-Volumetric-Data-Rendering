@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from random import shuffle
+from math import cos, sin, pi
 
 class NullVector(Exception):
     pass
@@ -10,12 +11,20 @@ def normalize(vector):
     if norm == 0:
         raise NullVector
     return vector / norm
-        
+
+def rotation_mat(axis, theta):
+    if axis == 'x':
+        return np.array([[1, 0, 0], [0, cos(theta), -sin(theta)], [0, sin(theta), cos(theta)]])
+    elif axis == 'y':
+        return np.array([[cos(theta), 0, sin(theta)], [0, 1, 0], [-sin(theta), 0, cos(theta)]])
+    elif axis == 'z':
+        return np.array([[cos(theta), -sin(theta), 0], [sin(theta), cos(theta), 0], [0, 0, 1]])
+
 #Penser à dessiner les axes en 3D pour aider à mieux comprendre la position de la caméra.
 #Verif que camera pas dans bounding box ?
 
 image_resolution = np.array([100, 100])
-canvas_center = np.array([1, 0, 0])
+canvas_center = rotation_mat('z', pi/8) @ np.array([2, 0, 0])
 canvas_size = np.array([1, 1])
 pixel_size = canvas_size / image_resolution
 canvas_look_at = np.array([0, 0, 0])
@@ -29,17 +38,19 @@ canvas_tangenty = normalize(np.cross(canvas_tangentx, canvas_normal))
 canvas_tangents = np.array([canvas_tangentx, canvas_tangenty])
 canvas_origin = canvas_center - canvas_tangents[0] * canvas_size[0] / 2 - canvas_tangents[1] * canvas_size[1]/2
 '''canvas_corners = [canvas_origin,
-    canvas_origin + canvas_tangentx * canvas_size[0],
-    canvas_origin + canvas_tangenty * canvas_size[1],
-    canvas_origin + canvas_tangentx * canvas_size[0] + canvas_tangenty * canvas_size[1]]'''
+    canvas_origin + canvas_tangents[0] * canvas_size[0],
+    canvas_origin + canvas_tangents[1] * canvas_size[1],
+    canvas_origin + canvas_tangents[0] * canvas_size[0] + canvas_tangents[1] * canvas_size[1]]'''
 
 #Data variables
 #On suppose la bounding box centrée en (0, 0, 0) et orientée selon les axes x, y, z.
+#bb_origin = np.array([0, 0, 0])
 bb_center = np.array([0, 0, 0])
 data_resolution = np.array([10, 10, 10])
 bb_size = np.array([1, 1, 1])
 voxel_size = bb_size / data_resolution
 bb_tangents = np.eye(3)
+#bb_center = bb_origin + 1/2 * bb_tangents @ bb_size
 
 '''
    1-------3       ^  z      
@@ -89,13 +100,15 @@ def ray_plane_intersect(ray_point, ray_dir, face_point, face_normal):
 def point_in_rect(point, corners):
     #We assume the point is on the plane of the rectangle
     #corners = bottomleft, topleft, bottomright, topright
-    bottomleft, topleft, bottomright, topright = corners
+    bottomleft, bottomright, topleft, topright = corners
     vecx = bottomright - bottomleft
     vecy = topleft - bottomleft
-    rect_size = (np.linalg.norm(vecx), np.linalg.norm(vecy))
-    rect_basis = (normalize(vecx), normalize(vecy))
+    #rect_size = np.array([np.linalg.norm(vecx), np.linalg.norm(vecy)])
+    rect_basis = np.array([normalize(vecx), normalize(vecy)])
     local_point = rect_basis @ point
-    return np.all(local_point <= rect_size)
+    lower_point = rect_basis @ bottomleft
+    upper_point = rect_basis @ topright
+    return np.all(lower_point <= local_point) and np.all(local_point <= upper_point)
 
 def ray_box_intersect(ray_point, ray_dir):
     '''Etant donnée un rayon, on renvoie les points d'intersection (potentiellement dupliqués)
@@ -110,14 +123,14 @@ def ray_box_intersect(ray_point, ray_dir):
             intersections.append(inter)
     return intersections
 
-def compute_image(self):
+def compute_image():
     iter_pixels = [(i, j) for i in range(image_resolution[0]) for j in range(image_resolution[1])]
     #shuffle(iter_pixels)
     image = np.zeros((image_resolution[0], image_resolution[1], 4))
     for pixel in iter_pixels:
         #Trouver le rayon venant du point
         ray_canvas_inter = global_pixel_coord(pixel)
-        ray_dir = ray_canvas_inter - eye
+        ray_dir = normalize(ray_canvas_inter - eye)
         #Chercher le point d'entrée et de sortie du rayon avec la bounding box.
         intersections = ray_box_intersect(eye, ray_dir)
         #Cas 1 : on n'a pas de point d'intersection.
@@ -125,13 +138,14 @@ def compute_image(self):
             image[pixel] = sky_colour
         #Cas 2 : on intersecte la bounding box.
         else:
-            #Le point par lequel on y rentre est celui le plus proche de l'oeil.
+            '''#Le point par lequel on y rentre est celui le plus proche de l'oeil.
             #Celui par lequel on sort est le plus éloigné.
             entry_point = min(intersections, key = lambda point : np.linalg.norm(point - eye))
             exit_point  = max(intersections, key = lambda point : np.linalg.norm(point - eye))
             #cf Emma
             colour = ray_marching()
-            image[pixel] = colour
+            image[pixel] = colour'''
+            image[pixel] = np.array([0.0, 1.0, 0.0, 1.0])
         
     return image
     
@@ -143,3 +157,5 @@ def show_image(image):
     #D'ou l'argument origin='lower'.
     plt.imshow(np.transpose(image, axes=(1, 0, 2)), origin='lower')
     plt.show()
+
+show_image(compute_image())

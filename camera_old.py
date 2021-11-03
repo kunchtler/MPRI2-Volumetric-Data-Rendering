@@ -148,11 +148,6 @@ class Camera():
 camera = Camera()
 camera.compute_image()
 
-class Scene()
-
-def __init__(self):
-    pass
-
 class VolumetricData():
 
     def __init__(self):
