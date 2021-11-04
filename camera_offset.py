@@ -164,6 +164,34 @@ def interpolate(pt):
     c110=data[x+1,y+1,z]
     c011=data[x,y+1,z+1]
     c111=data[x+1,y+1,z+1]
+    L=[c000,c100,c010,c110,c001,c101,c011,c111]
+    L1=np.array([1,x,y,z,(x)*(y),(x)*(z),(y)*(z),(x)*(y)*(z)])
+    L2=np.array([1,x+1,y,z,(x+1)*(y),(x+1)*(z),(y)*(z),(x+1)*(y)*(z)])
+    L3=np.array([1,x,y+1,z,(x)*(y+1),(x)*(z),(y+1)*(z),(x)*(y+1)*(z)])
+    L4=np.array([1,x+1,y+1,z,(x+1)*(y+1),(x+1)*(z),(y+1)*(z),(x+1)*(y+1)*(z)])
+    L5=np.array([1,x,y,z+1,(x)*(y),(x)*(z+1),(y)*(z+1),(x)*(y)*(z+1)])
+    L6=np.array([1,x+1,y,z+1,(x+1)*(y),(x+1)*(z+1),(y)*(z+1),(x+1)*(y)*(z+1)])
+    L7=np.array([1,x,y+1,z+1,(x)*(y+1),(x)*(z+1),(y+1)*(z+1),(x)*(y+1)*(z+1)])
+    L8=np.array([1,x+1,y+1,z+1,(x+1)*(y+1),(x+1)*(z+1),(y+1)*(z+1),(x+1)*(y+1)*(z+1)])
+    M=np.array([L1,L2,L3,L4,L5,L6,L7,L8])
+    X=np.linalg.solve(M,L)
+    return X[0]+X[1]*a+X[2]*b+X[3]*c+X[4]*a*b+X[5]*a*c+X[6]*b*c+X[7]*a*b*c
+
+def interpolate2(pt):
+    (a,b,c) = pt
+    x = int(a)
+    y = int(b)
+    z = int(c)
+    #On prend le coin le plus proche du centre de la bb afin que data[x+1, y, z] soit bien défini.
+    #(ie x+1 < data_resolution[0])
+    c000=data[x,y,z]
+    c100=data[x+1,y,z]
+    c001=data[x,y,z+1]
+    c101=data[x+1,y,z+1]
+    c010=data[x,y+1,z]
+    c110=data[x+1,y+1,z]
+    c011=data[x,y+1,z+1]
+    c111=data[x+1,y+1,z+1]
     xd = frac(a)
     yd = frac(b)
     zd = frac(c)

@@ -1,12 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from random import shuffle
-from math import cos, sin, pi, sqrt, ceil, floor
-
-from numpy.lib.function_base import interp
+from math import cos, sin, pi, sqrt, ceil, floor, modf
 
 def frac(x):
-    return x - int(x)
+    return x - closest_to_zero(x)
 
 class NullVector(Exception):
     pass
@@ -108,8 +106,6 @@ for face_corners in bb_faces_corners:
     bb_faces_rect_limits.append((lower_point, upper_point))
     bb_faces_rect_basis.append(rect_basis)
 
-slight_offset = 0.000000001
-
 #Other variables
 sky_colour = np.array([121, 248, 248, 255])/np.array([255, 255, 255, 255])
 step_size = np.min(voxel_size) / 5
@@ -121,6 +117,7 @@ shininess = 15
 
 import colour_fun as cf
 color_function = cf.colour_fun2
+#color_function = lambda x : np.array([x, x, x, 1.0 if x == 255 else 0])
 
 def global_pixel_coord(pixel):
     #We consider the coordinate of a pixel to be the middle of its square
@@ -149,21 +146,62 @@ def ray_box_intersect(ray_point, ray_dir):
             intersections.append(inter)
     return intersections
 
+def closest_to_zero(scalar):
+    if scalar == 0:
+        return 0
+    elif scalar > 0:
+        return ceil(scalar) - 1
+    else:
+        return floor(scalar) + 1
+
+def closest_corner_to_center(point):
+    '''Retourne le coin  du voxel auquel point appartient, le plus proche du centre de la bb'''
+    return ((closest_to_zero(point[0] - bb_center[0]) + bb_center[0],
+            closest_to_zero(point[1] - bb_center[1]) + bb_center[1],
+            closest_to_zero(point[2] - bb_center[2]) + bb_center[2]),
+            (-1 if point[0] < bb_center[0] else 1,
+            -1 if point[1] < bb_center[1] else 1,
+            -1 if point[2] < bb_center[2] else 1))
+
 def interpolate(pt):
     (a,b,c) = pt
-    x = int(a)
-    y = int(b)
-    z = int(c)
+    (x,y,z), (dx, dy, dz) = closest_corner_to_center(pt)
     #On prend le coin le plus proche du centre de la bb afin que data[x+1, y, z] soit bien défini.
     #(ie x+1 < data_resolution[0])
     c000=data[x,y,z]
-    c100=data[x+1,y,z]
-    c001=data[x,y,z+1]
-    c101=data[x+1,y,z+1]
-    c010=data[x,y+1,z]
-    c110=data[x+1,y+1,z]
-    c011=data[x,y+1,z+1]
-    c111=data[x+1,y+1,z+1]
+    c100=data[x+dx,y,z]
+    c001=data[x,y,z+dz]
+    c101=data[x+dx,y,z+dz]
+    c010=data[x,y+dy,z]
+    c110=data[x+dx,y+dy,z]
+    c011=data[x,y+dy,z+dz]
+    c111=data[x+dx,y+dy,z+dz]
+    L=[c000,c100,c010,c110,c001,c101,c011,c111]
+    M=np.array([
+        [1, x  , y  , z  , (x)  *(y)  , (x)  *(z)  , (y)  *(z)  , (x)  *(y)  *(z)  ],
+        [1, x+1, y  , z  , (x+1)*(y)  , (x+1)*(z)  , (y)  *(z)  , (x+1)*(y)  *(z)  ],
+        [1, x  , y+1, z  , (x)  *(y+1), (x)  *(z)  , (y+1)*(z)  , (x)  *(y+1)*(z)  ],
+        [1, x+1, y+1, z  , (x+1)*(y+1), (x+1)*(z)  , (y+1)*(z)  , (x+1)*(y+1)*(z)  ],
+        [1, x  , y  , z+1, (x)  *(y)  , (x)  *(z+1), (y)  *(z+1), (x)  *(y)  *(z+1)],
+        [1, x+1, y  , z+1, (x+1)*(y)  , (x+1)*(z+1), (y)  *(z+1), (x+1)*(y)  *(z+1)],
+        [1, x  , y+1, z+1, (x)  *(y+1), (x)  *(z+1), (y+1)*(z+1), (x)  *(y+1)*(z+1)],
+        [1, x+1, y+1, z+1, (x+1)*(y+1), (x+1)*(z+1), (y+1)*(z+1), (x+1)*(y+1)*(z+1)]])
+    X=np.linalg.solve(M,L)
+    return X[0]+X[1]*a+X[2]*b+X[3]*c+X[4]*a*b+X[5]*a*c+X[6]*b*c+X[7]*a*b*c
+
+def interpolate2(pt):
+    (a,b,c) = pt
+    (x,y,z), (dx, dy, dz) = closest_corner_to_center(pt)
+    #On prend le coin le plus proche du centre de la bb afin que data[x+1, y, z] soit bien défini.
+    #(ie x+1 < data_resolution[0])
+    c000=data[x,y,z]
+    c100=data[x+dx,y,z]
+    c001=data[x,y,z+dz]
+    c101=data[x+dx,y,z+dz]
+    c010=data[x,y+dy,z]
+    c110=data[x+dx,y+dy,z]
+    c011=data[x,y+dy,z+dz]
+    c111=data[x+dx,y+dy,z+dz]
     xd = frac(a)
     yd = frac(b)
     zd = frac(c)
@@ -176,14 +214,33 @@ def interpolate(pt):
     c = c0*(1-zd) + c1*zd
     return c
 
+def interpolate3(pt):
+    (a,b,c) = pt
+    (x,y,z), (dx, dy, dz) = closest_corner_to_center(pt)
+    #On prend le coin le plus proche du centre de la bb afin que data[x+1, y, z] soit bien défini.
+    #(ie x+1 < data_resolution[0])
+    c000=data[x,y,z]
+    c100=data[x+dx,y,z]
+    c001=data[x,y,z+dz]
+    c101=data[x+dx,y,z+dz]
+    c010=data[x,y+dy,z]
+    c110=data[x+dx,y+dy,z]
+    c011=data[x,y+dy,z+dz]
+    c111=data[x+dx,y+dy,z+dz]
+    xd = frac(a)
+    yd = frac(b)
+    zd = frac(c)
+    c = ((c000*(1-xd) + c100*xd)*(1-yd) + (c010*(1-xd) + c110*xd)*yd)*(1-zd) + ((c001*(1-xd) + c101*xd)*(1-yd) + (c011*(1-xd) + c111*xd)*yd)*zd
+    return c
+
 def normal_to_isosurface(u):
     (x,y,z) = u
-    ux_m1 = (max(0 + slight_offset, x-1), y, z)
-    uy_m1 = (x, max(0 + slight_offset, y-1), z)
-    uz_m1 = (x, y, max(0 + slight_offset, z-1))
-    ux_p1 = (min(nb_voxels[0] - slight_offset, x+1), y, z)
-    uy_p1 = (x, min(nb_voxels[1] - slight_offset, y+1), z)
-    uz_p1 = (x, y, min(nb_voxels[2] - slight_offset, z+1))
+    ux_m1 = (max(0, x-1), y, z)
+    uy_m1 = (x, max(0, y-1), z)
+    uz_m1 = (x, y, max(0, z-1))
+    ux_p1 = (min(nb_voxels[0], x+1), y, z)
+    uy_p1 = (x, min(nb_voxels[1], y+1), z)
+    uz_p1 = (x, y, min(nb_voxels[2], z+1))
     g_x = (interpolate(ux_m1) - interpolate(ux_p1)) / (ux_p1[0] - ux_m1[0])
     g_y = (interpolate(uy_m1) - interpolate(uy_p1)) / (uy_p1[1] - uy_m1[1])
     g_z = (interpolate(uz_m1) - interpolate(uz_p1)) / (uz_p1[2] - uz_m1[2])
@@ -209,18 +266,13 @@ def compute_color(dir_r, pt_d, pt_f):
     #Mais si les points d'entrée et de sortie sont vraiment trop proches,
     #On abandonne. Oui, c'est sale.
     d = sqrt((pt_f - pt_d) @ (pt_f - pt_d))
-    if d <= 2*slight_offset:
-        return sky_colour
-    pt_d += slight_offset*dir_r
-    pt_f -= slight_offset*dir_r
-    d = sqrt((pt_f - pt_d) @ (pt_f - pt_d))
     n = int(d / step_size) + 1 #Sinon n est de type np.float64
     sample_values = []
     sample_positions = []
     # creation des valeurs de chaque pixel
     for i in range(n):
         sample_pos = local_bb_coord(pt_f - dir_r*i*step_size) #Le faire dans l'autre sens ?
-        sample_val = interpolate(sample_pos)
+        sample_val = interpolate3(sample_pos)
         sample_values.append(sample_val)
         sample_positions.append(sample_pos)
     # transformation de la couleur pour chaque pixel
@@ -234,7 +286,7 @@ def compute_color(dir_r, pt_d, pt_f):
         V = -dir_r
         #Si le vecteur normal est nul, on met T = 0 pour faire tomber la composante speculaire.
         T = normalize(vector_symmetric(L, N)) if N @ N != 0 else np.array([0, 0, 0])'''
-        #shaded_colour = base_colour[:3] @ (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess"""
+        #shaded_colour = base_colour[:3] @ (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess
         shaded_colour = base_colour[:3]
         tab_des_couleurs.append(shaded_colour)
         tab_des_alpha.append(base_colour[3])
@@ -301,7 +353,7 @@ def main():
     stats = pstats.Stats(pr)
     stats.sort_stats(pstats.SortKey.TIME)
     #stats.print_stats()
-    stats.dump_stats(filename='so2.prof')
+    stats.dump_stats(filename='cl3.prof')
     show_image(image)
 
 
