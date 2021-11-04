@@ -50,7 +50,7 @@ canvas_origin = canvas_center - canvas_tangents[0] * canvas_size[0] / 2 - canvas
 
 #Data variables
 import dataset_generation as gen
-data = gen.sample_data1(np.full((3,), 10), 255)
+data = gen.sample_data1(np.full((3,), 64), 255)
 #data = np.full((10, 10, 10), 255)
 
 #On suppose la bounding box centrée en (0, 0, 0) et orientée selon les axes x, y, z.
@@ -112,12 +112,7 @@ slight_offset = 0.000000001
 
 #Other variables
 sky_colour = np.array([121, 248, 248, 255])/np.array([255, 255, 255, 255])
-step_size = np.min(voxel_size) / 5
-I_amb = np.ones((3,))
-I_diff = np.ones((3,))
-I_spec = np.ones((3,))
-lum_pos = np.array([0, 10, 5])
-shininess = 15
+step_size = np.min(voxel_size) / 2
 
 import colour_fun as cf
 color_function = cf.colour_fun2
@@ -203,6 +198,13 @@ def vector_symmetric(u, v):
 def local_bb_coord(point):
     return bb_voxel_sized_basis @ (point - bb_origin)
 
+I_amb = np.array([0.5, 0.5, 0.5])
+I_diff = np.array([0.5, 0.5, 0.5])
+I_spec = np.ones((3,))
+lum_pos = np.array([0, 5, 5])
+lum_pos_bb_coord = local_bb_coord(lum_pos)
+shininess = 30
+
 def compute_color(dir_r, pt_d, pt_f):
     #On offset très légèrement les points d'entrée et de sortie pour éviter des problèmes
     #quand les données à interpoler sont pile sur une face de la bb.
@@ -228,14 +230,16 @@ def compute_color(dir_r, pt_d, pt_f):
     tab_des_couleurs = []
     for i in range(n):
         base_colour = color_function(sample_values[i])
-        '''sample_pos = sample_positions[i]
+        sample_pos = sample_positions[i]
         N = normal_to_isosurface(sample_pos)
-        L = normalize(lum_pos - sample_pos)
-        V = -dir_r
+        L = normalize(lum_pos_bb_coord - sample_pos)
+        V = - normalize(local_bb_coord(dir_r))
         #Si le vecteur normal est nul, on met T = 0 pour faire tomber la composante speculaire.
-        T = normalize(vector_symmetric(L, N)) if N @ N != 0 else np.array([0, 0, 0])'''
-        #shaded_colour = base_colour[:3] @ (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess"""
-        shaded_colour = base_colour[:3]
+        T = normalize(vector_symmetric(L, N)) if N @ N != 0 else np.array([0, 0, 0])
+        shaded_colour = base_colour[:3] * (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess
+        #Il se peut que la couleur avec ombre ne soit plus dans [0,1]**3, donc on la clip.
+        shaded_colour.clip(0, 1, out=shaded_colour)
+        #shaded_colour = base_colour[:3]
         tab_des_couleurs.append(shaded_colour)
         tab_des_alpha.append(base_colour[3])
     # Computation de la couleur finale
@@ -301,7 +305,7 @@ def main():
     stats = pstats.Stats(pr)
     stats.sort_stats(pstats.SortKey.TIME)
     #stats.print_stats()
-    stats.dump_stats(filename='so2.prof')
+    stats.dump_stats(filename='p1.prof')
     show_image(image)
 
 

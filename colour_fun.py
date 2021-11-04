@@ -7,7 +7,7 @@ def colour_fun1(x):
 
 def colour_fun2(x):
     xn = x/255
-    return np.array([1.0, 1.0, 1.0, xn])
+    return np.array([1.0, 0.0, 0.0, xn])
 
 def colour_fun3(x):
     xn = x/255

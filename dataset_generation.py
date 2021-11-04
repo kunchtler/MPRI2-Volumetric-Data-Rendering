@@ -24,5 +24,5 @@ def add_rect(corner1, corner2, value, data, coord):
 def sample_data1(data_nb_voxels, colour):
     '''Just a sphere'''
     data, coord = initialize_data(data_nb_voxels, 0)
-    add_sphere(np.array([0.5, 0.5, 0.5]), 0.5, colour, data, coord)
+    add_sphere(np.array([0.5, 0.5, 0.5]), 0.4, colour, data, coord)
     return data
