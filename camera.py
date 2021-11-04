@@ -4,10 +4,6 @@ from random import shuffle
 from math import cos, sin, pi, sqrt
 from useful_functions import frac, NullVector, normalize, rotation_mat, show_image, vector_symmetric
 
-class Scene():
-
-    def __init__(self):
-
 
 image_resolution = np.array([100, 100])
 #canvas_center = rotation_mat('z', pi/8) @ np.array([2, 0, 0])
