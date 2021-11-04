@@ -2,8 +2,6 @@ import struct
 import numpy as np
 import matplotlib.pyplot as plt
 
-file_name = r"data/C60.vol"
-
 def parse_vol_file(file_name):
     with open(file_name, "rb") as f:
         numX = int.from_bytes(f.read(4), "big")
@@ -30,6 +28,8 @@ def show_data_slice(slice):
     plt.imshow(slice.T, vmin=0, vmax=255, interpolation='nearest', origin='lower')
     plt.show()
 
-aspect_ratio, data = parse_vol_file(file_name)
-#analyze_data(data)
-show_data_slice(data[data.shape[0]//2])
+if __name__ == '__main__':
+    file_name = r"data/C60.vol"
+    aspect_ratio, data = parse_vol_file(file_name)
+    #analyze_data(data)
+    show_data_slice(data[25])

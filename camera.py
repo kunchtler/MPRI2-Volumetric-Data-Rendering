@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 from random import shuffle
 from math import cos, sin, pi, sqrt
 from useful_functions import frac, NullVector, normalize, rotation_mat, show_image, vector_symmetric
+from parse_data import parse_vol_file
 
 
-image_resolution = np.array([100, 100])
+image_resolution = np.array([200, 200])
 #canvas_center = rotation_mat('z', pi/8) @ np.array([2, 0, 0])
-canvas_center = rotation_mat('z', pi/8) @ np.array([0.75, 0, 0])
+canvas_center = rotation_mat('z', pi/8) @ np.array([0.3, 0, 0])
 canvas_size = np.array([1, 1])
 pixel_size = canvas_size / image_resolution
 canvas_look_at = np.array([0, 0, 0])
@@ -26,8 +27,11 @@ canvas_origin = canvas_center - canvas_tangents[0] * canvas_size[0] / 2 - canvas
     canvas_origin + canvas_tangents[0] * canvas_size[0] + canvas_tangents[1] * canvas_size[1]]'''
 
 #Data variables
-import dataset_generation as gen
-data = gen.sample_data1(np.full((3,), 64), 255)
+'''import dataset_generation as gen
+data = gen.sample_data1(np.full((3,), 64), 255)'''
+aspect_ratio, data = parse_vol_file(r"data/C60.vol")
+import colour_fun as cf
+color_function = cf.colour_C60
 
 #On suppose la bounding box centrée en (0, 0, 0) et orientée selon les axes x, y, z.
 #bb_origin = np.array([0, 0, 0])
@@ -100,8 +104,6 @@ shininess = 30
 sky_colour = np.array([0, 0, 0, 1])
 step_size = 1 / 2
 
-import colour_fun as cf
-color_function = cf.colour_fun2
 
 def global_pixel_coord(pixel):
     #We consider the coordinate of a pixel to be the middle of its square
@@ -177,8 +179,6 @@ def normal_to_isosurface(u):
     except NullVector:
         return np.array([0, 0, 0])
 
-
-
 def compute_color(dir_r, pt_d, pt_f):
     #Coordonnées locales dans la bb.
     #On offset très légèrement les points d'entrée et de sortie pour éviter des problèmes
@@ -233,7 +233,12 @@ def compute_image(debug=False):
     #iter_pixels = [(60, 60)]
     #shuffle(iter_pixels)
     image = np.zeros((image_resolution[0], image_resolution[1], 4))
+    nb_pixels = image_resolution[0]*image_resolution[1]
+    i=0
     for pixel in iter_pixels:
+        if int(i*100/nb_pixels) != int((i-1)*100/nb_pixels):
+            print('{}%'.format(int(i/nb_pixels*100)), end=' ')
+        i+=1
         #Trouver le rayon venant du point
         ray_canvas_inter = global_pixel_coord(pixel)
         ray_dir = normalize(ray_canvas_inter - eye)
@@ -258,11 +263,11 @@ def compute_image(debug=False):
         
     return image
 
-'''if __name__ == '__main__':
+if __name__ == '__main__':
     image = compute_image()
-    show_image(image)'''
+    show_image(image)
 
-def main():
+'''if __name__ == '__main__':
     import cProfile
     import pstats
 
@@ -272,9 +277,5 @@ def main():
     stats = pstats.Stats(pr)
     stats.sort_stats(pstats.SortKey.TIME)
     #stats.print_stats()
-    stats.dump_stats(filename='../profiling/test.prof')
-    show_image(image)
-
-
-if __name__ == '__main__':
-    main()
+    stats.dump_stats(filename='../profiling/C_60.prof')
+    show_image(image)'''

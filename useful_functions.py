@@ -22,6 +22,10 @@ def rotation_mat(axis, theta):
     elif axis == 'z':
         return np.array([[cos(theta), -sin(theta), 0], [sin(theta), cos(theta), 0], [0, 0, 1]])
 
+def vector_symmetric(u, v):
+    '''Symmétrique du vecteur u par rapport au vecteur v'''
+    return 2 * (u @ v) / (v @ v) * v - u
+
 def show_image(image):
     #imshow considère que l'axe x est vertical et l'axe y horizontal.
     #Il faut donc transposer l'écran, sans toucher aux vecteur des couleurs

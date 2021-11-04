@@ -18,8 +18,11 @@ def ease_out(x):
     return np.array([1.0, 1.0, 1.0, sqrt(1 - (1-xn)**2)])
 
 def colour_C60(x):
-    c1 = np.array([1.0, 1.0, 0.0, smoothstep(x, x_min=200, x_max=255)])
-    c2 = np.array([0.0, 255/255, 154/255, smoothstep(x, x_min=30, x_max=200, y_min=0, y_max=0.5)])
+    c1 = np.array([1.0, 1.0, 0.0, smoothstep(x, x_min=190, x_max=255)])
+    #return c1
+    alpha = min(smoothstep(x, x_min=100, x_max=120, y_min=0, y_max=0.04),
+                smoothstep(x, x_min=190, x_max=200, y_min=0.04, y_max=0))
+    c2 = np.array([0.0, 255/255, 154/255, alpha])
     return blend_colours(c1, c2)
 
 def smoothstep(x, x_min=0, x_max=1, y_min=0, y_max=1):
@@ -34,6 +37,8 @@ def smoothstep(x, x_min=0, x_max=1, y_min=0, y_max=1):
     return y
 
 def blend_colours(c1, c2):
+    if c1[3] + c2[3] == 0:
+        return np.array([0, 0, 0, 0])
     a = c1[3] / (c1[3] + c2[3])
     return c1*a + c2*(1-a)
 
