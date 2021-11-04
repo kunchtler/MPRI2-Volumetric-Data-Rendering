@@ -1,36 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from random import shuffle
-from math import cos, sin, pi, sqrt, ceil, floor
+from math import cos, sin, pi, sqrt
+from useful_functions import frac, NullVector, normalize, rotation_mat, show_image, vector_symmetric
 
-from numpy.lib.function_base import interp
+class Scene():
 
-def frac(x):
-    return x - int(x)
+    def __init__(self):
 
-class NullVector(Exception):
-    pass
-
-def normalize(vector):
-    norm = sqrt(vector @ vector)
-    if norm == 0:
-        raise NullVector
-    return vector / norm
-
-def rotation_mat(axis, theta):
-    if axis == 'x':
-        return np.array([[1, 0, 0], [0, cos(theta), -sin(theta)], [0, sin(theta), cos(theta)]])
-    elif axis == 'y':
-        return np.array([[cos(theta), 0, sin(theta)], [0, 1, 0], [-sin(theta), 0, cos(theta)]])
-    elif axis == 'z':
-        return np.array([[cos(theta), -sin(theta), 0], [sin(theta), cos(theta), 0], [0, 0, 1]])
-
-#Penser à dessiner les axes en 3D pour aider à mieux comprendre la position de la caméra.
-#Verif que camera pas dans bounding box ?
 
 image_resolution = np.array([100, 100])
 #canvas_center = rotation_mat('z', pi/8) @ np.array([2, 0, 0])
-canvas_center = np.array([0.75, 0, 0])
+canvas_center = rotation_mat('z', pi/8) @ np.array([0.75, 0, 0])
 canvas_size = np.array([1, 1])
 pixel_size = canvas_size / image_resolution
 canvas_look_at = np.array([0, 0, 0])
@@ -51,7 +32,6 @@ canvas_origin = canvas_center - canvas_tangents[0] * canvas_size[0] / 2 - canvas
 #Data variables
 import dataset_generation as gen
 data = gen.sample_data1(np.full((3,), 64), 255)
-#data = np.full((10, 10, 10), 255)
 
 #On suppose la bounding box centrée en (0, 0, 0) et orientée selon les axes x, y, z.
 #bb_origin = np.array([0, 0, 0])
@@ -111,8 +91,18 @@ for face_corners in bb_faces_corners:
 slight_offset = 0.000000001
 
 #Other variables
-sky_colour = np.array([121, 248, 248, 255])/np.array([255, 255, 255, 255])
-step_size = np.min(voxel_size) / 2
+def local_bb_coord(point):
+    return bb_voxel_sized_basis @ (point - bb_origin)
+
+I_amb = np.array([0.5, 0.5, 0.5])
+I_diff = np.array([0.5, 0.5, 0.5])
+I_spec = np.ones((3,))
+lum_pos = np.array([0, 5, 5])
+lum_pos_bb_coord = local_bb_coord(lum_pos)
+shininess = 30
+#sky_colour = np.array([121, 248, 248, 255])/np.array([255, 255, 255, 255])
+sky_colour = np.array([0, 0, 0, 1])
+step_size = 1 / 2
 
 import colour_fun as cf
 color_function = cf.colour_fun2
@@ -191,21 +181,10 @@ def normal_to_isosurface(u):
     except NullVector:
         return np.array([0, 0, 0])
 
-def vector_symmetric(u, v):
-    '''Symmétrique du vecteur u par rapport au vecteur v'''
-    return 2 * (u @ v) / (v @ v) * v - u
 
-def local_bb_coord(point):
-    return bb_voxel_sized_basis @ (point - bb_origin)
-
-I_amb = np.array([0.5, 0.5, 0.5])
-I_diff = np.array([0.5, 0.5, 0.5])
-I_spec = np.ones((3,))
-lum_pos = np.array([0, 5, 5])
-lum_pos_bb_coord = local_bb_coord(lum_pos)
-shininess = 30
 
 def compute_color(dir_r, pt_d, pt_f):
+    #Coordonnées locales dans la bb.
     #On offset très légèrement les points d'entrée et de sortie pour éviter des problèmes
     #quand les données à interpoler sont pile sur une face de la bb.
     #Mais si les points d'entrée et de sortie sont vraiment trop proches,
@@ -221,7 +200,7 @@ def compute_color(dir_r, pt_d, pt_f):
     sample_positions = []
     # creation des valeurs de chaque pixel
     for i in range(n):
-        sample_pos = local_bb_coord(pt_f - dir_r*i*step_size) #Le faire dans l'autre sens ?
+        sample_pos = pt_f - dir_r*i*step_size
         sample_val = interpolate(sample_pos)
         sample_values.append(sample_val)
         sample_positions.append(sample_pos)
@@ -233,7 +212,7 @@ def compute_color(dir_r, pt_d, pt_f):
         sample_pos = sample_positions[i]
         N = normal_to_isosurface(sample_pos)
         L = normalize(lum_pos_bb_coord - sample_pos)
-        V = - normalize(local_bb_coord(dir_r))
+        V = - dir_r
         #Si le vecteur normal est nul, on met T = 0 pour faire tomber la composante speculaire.
         T = normalize(vector_symmetric(L, N)) if N @ N != 0 else np.array([0, 0, 0])
         shaded_colour = base_colour[:3] * (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess
@@ -255,6 +234,7 @@ def compute_color(dir_r, pt_d, pt_f):
 def compute_image(debug=False):
     #iter_pixels = [(79, 79)]
     iter_pixels = [(i, j) for i in range(image_resolution[0]) for j in range(image_resolution[1])]
+    #iter_pixels = [(60, 60)]
     #shuffle(iter_pixels)
     image = np.zeros((image_resolution[0], image_resolution[1], 4))
     for pixel in iter_pixels:
@@ -276,20 +256,11 @@ def compute_image(debug=False):
             if debug:
                 image[pixel] = np.array([0.0, 1.0, 0.0, 1.0])
             else:
-                colour = compute_color(ray_dir, entry_point, exit_point)
+                colour = compute_color(normalize(bb_tangents @ ray_dir), local_bb_coord(entry_point), local_bb_coord(exit_point))
                 image[pixel] = colour
             #image[pixel] = np.array([0.0, 1.0, 0.0, 1.0])
         
     return image
-    
-
-def show_image(image):
-    #imshow considère que l'axe x est vertical et l'axe y horizontal.
-    #Il faut donc transposer l'écran, sans toucher aux vecteur des couleurs
-    #De plus, il place l'origine en haut à gauche, alors que le notre est bas à gauche.
-    #D'ou l'argument origin='lower'.
-    plt.imshow(np.transpose(image, axes=(1, 0, 2)), origin='lower', interpolation='nearest')
-    plt.show()
 
 '''if __name__ == '__main__':
     image = compute_image()
@@ -305,7 +276,7 @@ def main():
     stats = pstats.Stats(pr)
     stats.sort_stats(pstats.SortKey.TIME)
     #stats.print_stats()
-    stats.dump_stats(filename='p1.prof')
+    stats.dump_stats(filename='../profiling/test.prof')
     show_image(image)
 
 
