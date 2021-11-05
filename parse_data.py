@@ -26,6 +26,7 @@ def analyze_data(data):
     
 def show_data_slice(slice):
     plt.imshow(slice.T, vmin=0, vmax=255, interpolation='nearest', origin='lower')
+    plt.colorbar()
     plt.show()
 
 if __name__ == '__main__':

@@ -1,5 +1,6 @@
 import numpy as np
 from math import sqrt
+import matplotlib.pyplot as plt
 
 def colour_fun1(x):
     xn = x/255
@@ -23,9 +24,9 @@ def colour_C60(x):
     c2 = np.array([0.0, 255/255, 154/255, alpha])
     return blend_colours(c1, c2)
 
-def colour_Foot(x):
-    alpha = smoothstep(x, 123, 130, 0.0, 1.0)
-    c1 = np.array([249/255, 255/255, 171/255, alpha])
+def colour_Foot(x, bone_colour=(249/255, 255/255, 171/255)):
+    alpha = smoothmountain(x, 123, 130, 0.0, 1.0, 200, 230, 1.0, 0.0)
+    c1 = np.array([*bone_colour, alpha])
     #return c1
     alpha = smoothmountain(x, 60, 65, 0.0, 0.02, 105, 110, 0.02, 0.0)
     c2 = np.array([112/255, 58/255, 16/255, alpha])
@@ -50,6 +51,19 @@ def blend_colours(c1, c2):
         return np.array([0, 0, 0, 0])
     a = c1[3] / (c1[3] + c2[3])
     return c1*a + c2*(1-a)
+
+def plot_color_Foot():
+    x = np.arange(256)
+    y1 = [smoothmountain(elem, 123, 130, 0.0, 1.0, 200, 230, 1.0, 0.0) for elem in x]
+    y2 = [smoothmountain(elem, 60, 65, 0.0, 0.02, 105, 110, 0.02, 0.0) for elem in x]
+    plt.plot(x, y1, color=(249/255, 255/255, 171/255))
+    plt.plot(x, y2, color=(112/255, 58/255, 16/255))
+    plt.xlabel(r"$f$")
+    plt.ylabel(r"Transparence")
+    plt.title(r"Transparence par valeur de $f$ par couleur")
+    ax = plt.gca()
+    ax.set_facecolor((0.5, 0.5, 0.5))
+    plt.show()
 
 '''def blend_colours(c1, c2):
     alpha = 1 - (1 - c1[3]) * (1 - c2[3])

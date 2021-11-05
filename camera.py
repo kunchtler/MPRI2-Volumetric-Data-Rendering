@@ -7,9 +7,9 @@ from parse_data import parse_vol_file
 import tkinter as tk
 
 
-image_resolution = np.array([200, 200])
+image_resolution = np.array([100, 100])
 #canvas_center = rotation_mat('z', pi/8) @ np.array([2, 0, 0])
-canvas_center = rotation_mat('z', 0) @ np.array([0.5, 0, 0])
+canvas_center = rotation_mat('y', 0) @ rotation_mat('z', 0) @ np.array([0.5, 0, 0])
 canvas_size = image_resolution / np.max(image_resolution)
 pixel_size = canvas_size / image_resolution
 canvas_look_at = np.array([0, 0, 0])
@@ -32,11 +32,11 @@ canvas_origin = canvas_center - canvas_tangents[0] * canvas_size[0] / 2 - canvas
 data = gen.sample_data1(np.full((3,), 64), 255)'''
 '''aspect_ratio, data = parse_vol_file(r"data/C60.vol")
 import colour_fun as cf
-color_function = cf.colour_C60'''
+colour_function = cf.colour_C60'''
 aspect_ratio, data = parse_vol_file(r"data/Foot.vol")
 data = np.transpose(data, axes=(2,1,0))
 import colour_fun as cf
-color_function = cf.colour_Foot
+colour_function = cf.colour_Foot
 
 #On suppose la bounding box centrée en (0, 0, 0) et orientée selon les axes x, y, z.
 #bb_origin = np.array([0, 0, 0])
@@ -209,7 +209,7 @@ def compute_color(dir_r, pt_d, pt_f, no_shadows=False):
     tab_des_alpha = []
     tab_des_couleurs = []
     for i in range(n):
-        base_colour = color_function(sample_values[i])
+        base_colour = colour_function(sample_values[i])
         sample_pos = sample_positions[i]
         if no_shadows:
             shaded_colour = base_colour[:3]
@@ -317,7 +317,7 @@ def compute_image(debug=False, no_shadows=False):
     return image
 
 if __name__ == '__main__':
-    image = compute_image(no_shadows=False)
+    image = tk_compute_image(no_shadows=True)
     show_image(image)
 
 '''if __name__ == '__main__':
