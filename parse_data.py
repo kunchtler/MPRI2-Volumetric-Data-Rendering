@@ -29,7 +29,11 @@ def show_data_slice(slice):
     plt.show()
 
 if __name__ == '__main__':
-    file_name = r"data/C60.vol"
+    #file_name = r"data/C60.vol"
+    #file_name = r"data/Foot.vol"
+    file_name = r"data/Frog.vol"
     aspect_ratio, data = parse_vol_file(file_name)
-    #analyze_data(data)
-    show_data_slice(data[25])
+    analyze_data(data)
+    show_data_slice(data[data.shape[0]//2])
+    #show_data_slice(data[:,data.shape[1]//2])
+    #show_data_slice(data[:,:,90].T)

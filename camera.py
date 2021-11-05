@@ -4,12 +4,13 @@ from random import shuffle
 from math import cos, sin, pi, sqrt
 from useful_functions import frac, NullVector, normalize, rotation_mat, show_image, vector_symmetric
 from parse_data import parse_vol_file
+import tkinter as tk
 
 
 image_resolution = np.array([200, 200])
 #canvas_center = rotation_mat('z', pi/8) @ np.array([2, 0, 0])
-canvas_center = rotation_mat('z', pi/8) @ np.array([0.3, 0, 0])
-canvas_size = np.array([1, 1])
+canvas_center = rotation_mat('z', 0) @ np.array([0.5, 0, 0])
+canvas_size = image_resolution / np.max(image_resolution)
 pixel_size = canvas_size / image_resolution
 canvas_look_at = np.array([0, 0, 0])
 canvas_normal = normalize(canvas_look_at - canvas_center)
@@ -29,9 +30,13 @@ canvas_origin = canvas_center - canvas_tangents[0] * canvas_size[0] / 2 - canvas
 #Data variables
 '''import dataset_generation as gen
 data = gen.sample_data1(np.full((3,), 64), 255)'''
-aspect_ratio, data = parse_vol_file(r"data/C60.vol")
+'''aspect_ratio, data = parse_vol_file(r"data/C60.vol")
 import colour_fun as cf
-color_function = cf.colour_C60
+color_function = cf.colour_C60'''
+aspect_ratio, data = parse_vol_file(r"data/Foot.vol")
+data = np.transpose(data, axes=(2,1,0))
+import colour_fun as cf
+color_function = cf.colour_Foot
 
 #On suppose la bounding box centrée en (0, 0, 0) et orientée selon les axes x, y, z.
 #bb_origin = np.array([0, 0, 0])
@@ -39,7 +44,7 @@ bb_center = np.array([0, 0, 0])
 data_resolution = np.array(data.shape)
 #Attention, ici les données sont non pas au centre mais dans les coins d'un voxel.
 nb_voxels = data_resolution - 1
-bb_size = np.array([1, 1, 1])
+bb_size = data_resolution / np.max(data_resolution)
 voxel_size = bb_size / nb_voxels
 bb_tangents = np.eye(3)
 bb_voxel_sized_basis = nb_voxels / bb_size * bb_tangents
@@ -97,7 +102,7 @@ def local_bb_coord(point):
 I_amb = np.array([0.5, 0.5, 0.5])
 I_diff = np.array([0.5, 0.5, 0.5])
 I_spec = np.ones((3,))
-lum_pos = np.array([0, 5, 5])
+lum_pos = np.array([3, -5, 4])
 lum_pos_bb_coord = local_bb_coord(lum_pos)
 shininess = 30
 #sky_colour = np.array([121, 248, 248, 255])/np.array([255, 255, 255, 255])
@@ -179,7 +184,7 @@ def normal_to_isosurface(u):
     except NullVector:
         return np.array([0, 0, 0])
 
-def compute_color(dir_r, pt_d, pt_f):
+def compute_color(dir_r, pt_d, pt_f, no_shadows=False):
     #Coordonnées locales dans la bb.
     #On offset très légèrement les points d'entrée et de sortie pour éviter des problèmes
     #quand les données à interpoler sont pile sur une face de la bb.
@@ -206,15 +211,17 @@ def compute_color(dir_r, pt_d, pt_f):
     for i in range(n):
         base_colour = color_function(sample_values[i])
         sample_pos = sample_positions[i]
-        N = normal_to_isosurface(sample_pos)
-        L = normalize(lum_pos_bb_coord - sample_pos)
-        V = - dir_r
-        #Si le vecteur normal est nul, on met T = 0 pour faire tomber la composante speculaire.
-        T = normalize(vector_symmetric(L, N)) if N @ N != 0 else np.array([0, 0, 0])
-        shaded_colour = base_colour[:3] * (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess
-        #Il se peut que la couleur avec ombre ne soit plus dans [0,1]**3, donc on la clip.
-        shaded_colour.clip(0, 1, out=shaded_colour)
-        #shaded_colour = base_colour[:3]
+        if no_shadows:
+            shaded_colour = base_colour[:3]
+        else:
+            N = normal_to_isosurface(sample_pos)
+            L = normalize(lum_pos_bb_coord - sample_pos)
+            V = - dir_r
+            #Si le vecteur normal est nul, on met T = 0 pour faire tomber la composante speculaire.
+            T = normalize(vector_symmetric(L, N)) if N @ N != 0 else np.array([0, 0, 0])
+            shaded_colour = base_colour[:3] * (I_amb + I_diff * max(0, N @ L)) + I_spec * max(0, V @ T)**shininess
+            #Il se peut que la couleur avec ombre ne soit plus dans [0,1]**3, donc on la clip.
+            shaded_colour.clip(0, 1, out=shaded_colour)
         tab_des_couleurs.append(shaded_colour)
         tab_des_alpha.append(base_colour[3])
     # Computation de la couleur finale
@@ -227,10 +234,53 @@ def compute_color(dir_r, pt_d, pt_f):
     return np.array([color[0], color[1], color[2], alpha])
 
 
-def compute_image(debug=False):
-    #iter_pixels = [(79, 79)]
+def tk_compute_image(no_shadows=False, random_order=True):
     iter_pixels = [(i, j) for i in range(image_resolution[0]) for j in range(image_resolution[1])]
-    #iter_pixels = [(60, 60)]
+    if random_order:
+        shuffle(iter_pixels)
+    #tkinter
+    tk_canvas_pixel_size = 5
+    root = tk.Tk()
+    canvas = tk.Canvas(root,
+                   width  = image_resolution[0] * tk_canvas_pixel_size,
+                   height = image_resolution[1] * tk_canvas_pixel_size,
+                   background = 'ivory')
+    canvas.pack()
+    image = np.zeros((image_resolution[0], image_resolution[1], 4))
+    
+    def tk_rgb(rgb):
+        """translates an rgb tuple of float in [0] to a tkinter friendly color code"""
+        return "#%02x%02x%02x" % rgb
+
+    def compute_one_pixel(i):
+        pixel = iter_pixels[i]
+        ray_canvas_inter = global_pixel_coord(pixel)
+        ray_dir = normalize(ray_canvas_inter - eye)
+        intersections = ray_box_intersect(eye, ray_dir)
+        if len(intersections) == 0:
+            image[pixel] = sky_colour
+        else:
+            entry_point = min(intersections, key = lambda point : np.linalg.norm(point - eye))
+            exit_point  = max(intersections, key = lambda point : np.linalg.norm(point - eye))
+            colour = compute_color(normalize(bb_voxel_sized_basis @ ray_dir),
+            local_bb_coord(entry_point),
+            local_bb_coord(exit_point),
+            no_shadows=no_shadows)
+            image[pixel] = colour
+        tk_coord = np.array([pixel[0], image_resolution[1]-pixel[1], (pixel[0]+1), (image_resolution[1]-pixel[1]+1)]) * tk_canvas_pixel_size
+        tk_colour = tk_rgb(tuple(int(255*elem) for elem in image[pixel][:3]))
+        canvas.create_rectangle(tk_coord[0], tk_coord[1], tk_coord[2], tk_coord[3], fill = tk_colour, outline='')
+        i += 1
+        if i < len(iter_pixels):
+            canvas.after(1, compute_one_pixel, i)
+
+    compute_one_pixel(0)
+    root.mainloop()
+    return image
+
+
+def compute_image(debug=False, no_shadows=False):
+    iter_pixels = [(i, j) for i in range(image_resolution[0]) for j in range(image_resolution[1])]
     #shuffle(iter_pixels)
     image = np.zeros((image_resolution[0], image_resolution[1], 4))
     nb_pixels = image_resolution[0]*image_resolution[1]
@@ -257,14 +307,17 @@ def compute_image(debug=False):
             if debug:
                 image[pixel] = np.array([0.0, 1.0, 0.0, 1.0])
             else:
-                colour = compute_color(normalize(bb_tangents @ ray_dir), local_bb_coord(entry_point), local_bb_coord(exit_point))
+                colour = compute_color(normalize(bb_voxel_sized_basis @ ray_dir),
+                    local_bb_coord(entry_point),
+                    local_bb_coord(exit_point),
+                    no_shadows=no_shadows)
                 image[pixel] = colour
             #image[pixel] = np.array([0.0, 1.0, 0.0, 1.0])
         
     return image
 
 if __name__ == '__main__':
-    image = compute_image()
+    image = compute_image(no_shadows=False)
     show_image(image)
 
 '''if __name__ == '__main__':

@@ -19,13 +19,19 @@ def ease_out(x):
 
 def colour_C60(x):
     c1 = np.array([1.0, 1.0, 0.0, smoothstep(x, x_min=190, x_max=255)])
-    #return c1
-    alpha = min(smoothstep(x, x_min=100, x_max=120, y_min=0, y_max=0.04),
-                smoothstep(x, x_min=190, x_max=200, y_min=0.04, y_max=0))
+    alpha = smoothmountain(x, 100, 120, 0.0, 0.04, 190, 200, 0.04, 0.0)
     c2 = np.array([0.0, 255/255, 154/255, alpha])
     return blend_colours(c1, c2)
 
-def smoothstep(x, x_min=0, x_max=1, y_min=0, y_max=1):
+def colour_Foot(x):
+    alpha = smoothstep(x, 123, 130, 0.0, 1.0)
+    c1 = np.array([249/255, 255/255, 171/255, alpha])
+    #return c1
+    alpha = smoothmountain(x, 60, 65, 0.0, 0.02, 105, 110, 0.02, 0.0)
+    c2 = np.array([112/255, 58/255, 16/255, alpha])
+    return blend_colours(c1, c2)
+
+def smoothstep(x, x_min, x_max, y_min, y_max):
     #https://en.wikipedia.org/wiki/Smoothstep
     if x_min >= x:
         y = y_min
@@ -35,6 +41,9 @@ def smoothstep(x, x_min=0, x_max=1, y_min=0, y_max=1):
         xp = (x-x_min) / (x_max-x_min)
         y = y_min + (-2*xp**3 + 3*xp**2)*(y_max - y_min)
     return y
+
+def smoothmountain(x, x_min1, x_max1, y_min1, y_max1, x_min2, x_max2, y_min2, y_max2):
+    return min(smoothstep(x, x_min1, x_max1, y_min1, y_max1), smoothstep(x, x_min2, x_max2, y_min2, y_max2))
 
 def blend_colours(c1, c2):
     if c1[3] + c2[3] == 0:
